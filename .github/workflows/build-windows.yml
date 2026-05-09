@@ -26,7 +26,7 @@ jobs:
 
       - name: Build exe
         run: |
-          pyinstaller --noconfirm --onefile --windowed --name VersionDownloader main.py
+          pyinstaller --noconfirm --onefile --windowed --name VersionDownloader --collect-all PySide6 main.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
