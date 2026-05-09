@@ -11,12 +11,14 @@
 
 - 图形界面输入根目录 URL 与本地保存目录
 - 递归扫描 HTTP 目录并展示文件列表
+- 自动忽略 `../`、`?C=N`、`?C=M`、`?C=S`、`?C=D` 等排序链接
+- 正确处理中文文件名、空格与 URL 编码
 - 列表字段：序号、相对路径、大小、状态、进度
 - 按顺序下载文件，保持目录结构
 - 使用 `.part` 临时文件，下载完成自动重命名
-- 已存在文件自动跳过
+- 若本地文件已存在且大小一致，自动跳过
 - 支持取消扫描、取消下载
-- 实时日志输出
+- 扫描/下载日志实时输出
 - 扫描与下载均在 `QThread Worker` 中执行，避免 UI 卡死
 
 ## 本地运行
@@ -33,6 +35,24 @@ python -m pip install -r requirements.txt
 python main.py
 ```
 
+## 简单自测（本地 HTTP 目录）
+
+1. 准备一个测试目录，例如：
+   - `test-data/a.txt`
+   - `test-data/sub/b.txt`
+2. 启动本地 HTTP 服务：
+
+```bash
+cd test-data
+python -m http.server 8000
+```
+
+3. 启动本工具后输入：
+   - 根目录 URL：`http://127.0.0.1:8000/`
+   - 保存目录：任意本地目录
+4. 点击“扫描目录”，确认出现递归文件列表。
+5. 点击“开始下载”，确认目录结构和文件内容已下载到本地。
+
 ## GitHub Actions 自动打包说明
 
 仓库包含工作流：`.github/workflows/build-windows.yml`。
@@ -45,6 +65,7 @@ python main.py
    - 输出文件名：`VersionDownloader.exe`
 4. 上传构建产物：
    - Artifact 名称：`VersionDownloader-windows`
+   - 包含文件：`dist/VersionDownloader.exe`
 
 ## 如何下载 exe
 

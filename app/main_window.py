@@ -29,7 +29,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Version Downloader")
-        self.resize(1000, 700)
+        self.resize(1000, 760)
 
         self.tasks: list[DownloadTask] = []
         self.scan_thread: QThread | None = None
@@ -59,7 +59,6 @@ class MainWindow(QMainWindow):
         cfg_layout.addWidget(QLabel("保存目录"), 1, 0)
         cfg_layout.addWidget(self.save_edit, 1, 1)
         cfg_layout.addWidget(browse_btn, 1, 2)
-
         layout.addWidget(cfg_box)
 
         btn_layout = QHBoxLayout()
@@ -80,6 +79,23 @@ class MainWindow(QMainWindow):
         btn_layout.addWidget(self.download_btn)
         btn_layout.addWidget(self.cancel_download_btn)
         layout.addLayout(btn_layout)
+
+        self.total_progress = QProgressBar()
+        self.total_progress.setRange(0, 100)
+        self.total_progress.setValue(0)
+        layout.addWidget(self.total_progress)
+
+        stats_layout = QHBoxLayout()
+        self.total_label = QLabel("总文件: 0")
+        self.completed_label = QLabel("已完成: 0")
+        self.failed_label = QLabel("失败: 0")
+        self.skipped_label = QLabel("跳过: 0")
+        stats_layout.addWidget(self.total_label)
+        stats_layout.addWidget(self.completed_label)
+        stats_layout.addWidget(self.failed_label)
+        stats_layout.addWidget(self.skipped_label)
+        stats_layout.addStretch()
+        layout.addLayout(stats_layout)
 
         self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels(["序号", "相对路径", "大小", "状态", "进度"])
@@ -107,9 +123,13 @@ class MainWindow(QMainWindow):
 
         self.tasks.clear()
         self.table.setRowCount(0)
+        self._update_summary(0, 0, 0, 0)
+        self.total_progress.setValue(0)
+
         self._log("开始扫描目录...")
         self.scan_btn.setEnabled(False)
         self.cancel_scan_btn.setEnabled(True)
+        self.download_btn.setEnabled(False)
 
         self.scan_thread = QThread(self)
         self.scan_worker = ScanWorker(url)
@@ -133,10 +153,12 @@ class MainWindow(QMainWindow):
         self.tasks = tasks
         self.scan_btn.setEnabled(True)
         self.cancel_scan_btn.setEnabled(False)
+        self.download_btn.setEnabled(bool(tasks))
 
         for task in tasks:
             self._add_task_row(task)
 
+        self._update_summary(len(tasks), 0, 0, 0)
         self._log(f"扫描完成，共 {len(tasks)} 个文件")
 
     def _add_task_row(self, task: DownloadTask) -> None:
@@ -164,6 +186,7 @@ class MainWindow(QMainWindow):
 
         Path(save_dir).mkdir(parents=True, exist_ok=True)
         self.download_btn.setEnabled(False)
+        self.scan_btn.setEnabled(False)
         self.cancel_download_btn.setEnabled(True)
         self._log("开始下载...")
 
@@ -174,6 +197,7 @@ class MainWindow(QMainWindow):
         self.download_thread.started.connect(self.download_worker.run)
         self.download_worker.item_progress.connect(self.update_progress)
         self.download_worker.item_status.connect(self.update_status)
+        self.download_worker.summary.connect(self._update_summary)
         self.download_worker.log.connect(self._log)
         self.download_worker.error.connect(self._on_error)
         self.download_worker.finished.connect(self.on_download_finished)
@@ -189,6 +213,7 @@ class MainWindow(QMainWindow):
 
     def on_download_finished(self) -> None:
         self.download_btn.setEnabled(True)
+        self.scan_btn.setEnabled(True)
         self.cancel_download_btn.setEnabled(False)
         self._log("下载流程结束")
 
@@ -203,6 +228,17 @@ class MainWindow(QMainWindow):
         item = self.table.item(row, 3)
         if item:
             item.setText(status)
+
+    def _update_summary(self, total: int, completed: int, failed: int, skipped: int) -> None:
+        self.total_label.setText(f"总文件: {total}")
+        self.completed_label.setText(f"已完成: {completed}")
+        self.failed_label.setText(f"失败: {failed}")
+        self.skipped_label.setText(f"跳过: {skipped}")
+        if total > 0:
+            percent = int((completed + failed + skipped) * 100 / total)
+            self.total_progress.setValue(min(100, percent))
+        else:
+            self.total_progress.setValue(0)
 
     def _on_error(self, message: str) -> None:
         self._log(message)
