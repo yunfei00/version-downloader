@@ -22,6 +22,7 @@ class FileDownloader:
         root_dir: Path,
         should_cancel,
         progress_callback,
+        size_callback,
         log_callback,
     ) -> str:
         if should_cancel():
@@ -44,6 +45,9 @@ class FileDownloader:
             with requests.get(task.file_url, stream=True, timeout=self.timeout) as response:
                 response.raise_for_status()
                 total = int(response.headers.get("Content-Length", "0") or 0)
+                if total > 0:
+                    task.size = total
+                    size_callback(task.index, task.size)
                 downloaded = 0
 
                 with temp_path.open("wb") as file_handle:

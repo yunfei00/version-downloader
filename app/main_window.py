@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QThread
+from PySide6.QtCore import QThread, Qt
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QFileDialog,
     QGridLayout,
     QGroupBox,
@@ -97,13 +98,16 @@ class MainWindow(QMainWindow):
         stats_layout.addStretch()
         layout.addLayout(stats_layout)
 
-        self.table = QTableWidget(0, 5)
-        self.table.setHorizontalHeaderLabels(["序号", "相对路径", "大小", "状态", "进度"])
+        self.table = QTableWidget(0, 6)
+        self.table.setHorizontalHeaderLabels(["序号", "相对路径", "大小", "状态", "进度", "本地路径"])
+        self.table.verticalHeader().setVisible(False)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.setColumnWidth(0, 70)
-        self.table.setColumnWidth(1, 460)
+        self.table.setColumnWidth(0, 60)
+        self.table.setColumnWidth(1, 360)
         self.table.setColumnWidth(2, 120)
         self.table.setColumnWidth(3, 120)
+        self.table.setColumnWidth(5, 260)
         layout.addWidget(self.table)
 
         self.log_edit = QTextEdit()
@@ -164,11 +168,13 @@ class MainWindow(QMainWindow):
     def _add_task_row(self, task: DownloadTask) -> None:
         row = self.table.rowCount()
         self.table.insertRow(row)
-        self.table.setItem(row, 0, QTableWidgetItem(str(task.index)))
+        index_item = QTableWidgetItem(str(task.index))
+        index_item.setTextAlignment(Qt.AlignCenter)
+        self.table.setItem(row, 0, index_item)
         self.table.setItem(row, 1, QTableWidgetItem(task.relative_path))
-        size_text = str(task.size) if task.size is not None else "-"
-        self.table.setItem(row, 2, QTableWidgetItem(size_text))
+        self.table.setItem(row, 2, QTableWidgetItem(self.format_size(task.size)))
         self.table.setItem(row, 3, QTableWidgetItem(task.status))
+        self.table.setItem(row, 5, QTableWidgetItem(""))
 
         bar = QProgressBar()
         bar.setValue(task.progress)
@@ -197,6 +203,7 @@ class MainWindow(QMainWindow):
         self.download_thread.started.connect(self.download_worker.run)
         self.download_worker.item_progress.connect(self.update_progress)
         self.download_worker.item_status.connect(self.update_status)
+        self.download_worker.item_size.connect(self.update_size)
         self.download_worker.summary.connect(self._update_summary)
         self.download_worker.log.connect(self._log)
         self.download_worker.error.connect(self._on_error)
@@ -222,12 +229,45 @@ class MainWindow(QMainWindow):
         widget = self.table.cellWidget(row, 4)
         if isinstance(widget, QProgressBar):
             widget.setValue(progress)
+        self._focus_row(row)
 
     def update_status(self, index: int, status: str) -> None:
         row = index - 1
         item = self.table.item(row, 3)
         if item:
             item.setText(status)
+        if self.download_worker:
+            task = self.download_worker.tasks[row]
+            self.table.item(row, 5).setText(str(task.local_path(self.download_worker.save_root)))
+        self._focus_row(row)
+
+    def update_size(self, index: int, size: int | None) -> None:
+        row = index - 1
+        item = self.table.item(row, 2)
+        if item:
+            item.setText(self.format_size(size))
+
+    def _focus_row(self, row: int) -> None:
+        if row < 0 or row >= self.table.rowCount():
+            return
+        self.table.selectRow(row)
+        item = self.table.item(row, 0)
+        if item:
+            self.table.scrollToItem(item, QAbstractItemView.PositionAtCenter)
+
+    @staticmethod
+    def format_size(size_bytes: int | None) -> str:
+        if size_bytes is None or size_bytes < 0:
+            return "未知"
+        units = ["B", "KB", "MB", "GB"]
+        value = float(size_bytes)
+        unit_index = 0
+        while value >= 1024 and unit_index < len(units) - 1:
+            value /= 1024
+            unit_index += 1
+        if unit_index == 0:
+            return f"{int(value)} {units[unit_index]}"
+        return f"{value:.1f} {units[unit_index]}"
 
     def _update_summary(self, total: int, completed: int, failed: int, skipped: int) -> None:
         self.total_label.setText(f"总文件: {total}")

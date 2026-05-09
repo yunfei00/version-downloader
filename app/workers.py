@@ -46,6 +46,7 @@ class ScanWorker(QObject):
 class DownloadWorker(QObject):
     item_progress = Signal(int, int)
     item_status = Signal(int, str)
+    item_size = Signal(int, object)
     log = Signal(str)
     summary = Signal(int, int, int, int)
     finished = Signal()
@@ -84,6 +85,7 @@ class DownloadWorker(QObject):
                         root_dir=self.save_root,
                         should_cancel=self._should_cancel,
                         progress_callback=self.item_progress.emit,
+                        size_callback=self.item_size.emit,
                         log_callback=self.log.emit,
                     )
                     self.item_status.emit(task.index, status)

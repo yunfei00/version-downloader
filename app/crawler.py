@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from collections import deque
 from urllib.parse import parse_qs, unquote, urldefrag, urljoin, urlparse
 
@@ -74,7 +73,7 @@ class DirectoryCrawler:
                     continue
 
                 seen_files.add(absolute)
-                size = self._extract_size(link)
+                size = self._fetch_content_length(absolute)
                 files.append({"relative_path": rel_path, "url": absolute, "size": size})
                 log_callback(f"发现文件: {rel_path}")
 
@@ -101,13 +100,21 @@ class DirectoryCrawler:
             return True
         return False
 
-    @staticmethod
-    def _extract_size(link_tag) -> int | None:
-        row_text = " ".join(link_tag.parent.get_text(" ", strip=True).split()) if link_tag.parent else ""
-        match = re.search(r"\b(\d{1,12})\b", row_text)
-        if match:
-            try:
-                return int(match.group(1))
-            except ValueError:
-                return None
+    def _fetch_content_length(self, url: str) -> int | None:
+        try:
+            response = requests.head(url, allow_redirects=True, timeout=self.timeout)
+            response.raise_for_status()
+        except requests.RequestException:
+            return None
+
+        content_length = response.headers.get("Content-Length")
+        if not content_length:
+            return None
+
+        try:
+            size = int(content_length)
+            return size if size >= 0 else None
+        except ValueError:
+            return None
+
         return None
