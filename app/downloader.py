@@ -23,8 +23,9 @@ class FileDownloader:
         should_cancel,
         progress_callback,
         size_callback,
+        bytes_callback,
         log_callback,
-    ) -> str:
+    ) -> tuple[str, int]:
         if should_cancel():
             raise DownloadCancelled("下载已取消")
 
@@ -33,14 +34,16 @@ class FileDownloader:
 
         if final_path.exists() and task.size is not None and final_path.stat().st_size == task.size:
             progress_callback(task.index, 100)
+            bytes_callback(task.size)
             log_callback(f"跳过(大小一致): {task.relative_path}")
-            return "已跳过"
+            return "已跳过", task.size
 
         temp_path = final_path.with_suffix(final_path.suffix + ".part")
         if temp_path.exists():
             temp_path.unlink()
 
         log_callback(f"下载: {task.file_url}")
+        downloaded = 0
         try:
             with requests.get(task.file_url, stream=True, timeout=self.timeout) as response:
                 response.raise_for_status()
@@ -48,7 +51,6 @@ class FileDownloader:
                 if total > 0:
                     task.size = total
                     size_callback(task.index, task.size)
-                downloaded = 0
 
                 with temp_path.open("wb") as file_handle:
                     for chunk in response.iter_content(chunk_size=self.chunk_size):
@@ -57,7 +59,9 @@ class FileDownloader:
                         if not chunk:
                             continue
                         file_handle.write(chunk)
-                        downloaded += len(chunk)
+                        chunk_len = len(chunk)
+                        downloaded += chunk_len
+                        bytes_callback(chunk_len)
                         if total > 0:
                             progress = int(downloaded * 100 / total)
                             progress_callback(task.index, min(100, progress))
@@ -68,4 +72,4 @@ class FileDownloader:
 
         temp_path.replace(final_path)
         progress_callback(task.index, 100)
-        return "已完成"
+        return "已完成", downloaded
