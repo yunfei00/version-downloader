@@ -53,9 +53,14 @@ python -m http.server 8000
 4. 点击“扫描目录”，确认出现递归文件列表。
 5. 点击“开始下载”，确认目录结构和文件内容已下载到本地。
 
-## GitHub Actions 自动打包说明
+## GitHub Actions 自动打包与发布说明
 
 仓库包含工作流：`.github/workflows/build-windows.yml`。
+
+工作流触发条件：
+
+- 推送符合 `v*` 的 tag（例如：`v0.1.0`）
+- 手动触发 `workflow_dispatch`
 
 工作流会在 `windows-latest` 上执行以下步骤：
 
@@ -63,13 +68,24 @@ python -m http.server 8000
 2. 安装 `requirements.txt` 依赖
 3. 运行 PyInstaller 打包：
    - 输出文件名：`VersionDownloader.exe`
-4. 上传构建产物：
-   - Artifact 名称：`VersionDownloader-windows`
-   - 包含文件：`dist/VersionDownloader.exe`
+   - 产物路径：`dist/VersionDownloader.exe`
+4. 自动创建 GitHub Release：
+   - Release 名称：`Version Downloader <tag>`
+   - Release body：`Auto build release`
+5. 自动上传 Release Asset：
+   - 文件名：`VersionDownloader.exe`
+
+## 如何创建 tag 发布版本
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+执行后会自动触发工作流，并在 GitHub **Releases** 页面创建对应版本并上传 `VersionDownloader.exe`。
 
 ## 如何下载 exe
 
-1. 打开 GitHub 仓库页面的 **Actions**。
-2. 进入一次成功的 `Build Windows Executable` 工作流运行记录。
-3. 在页面底部 **Artifacts** 区域下载 `VersionDownloader-windows`。
-4. 解压后获得 `VersionDownloader.exe`。
+1. 打开 GitHub 仓库页面的 **Releases**。
+2. 进入对应 tag 的 Release（例如 `v0.1.0`）。
+3. 在 **Assets** 区域下载 `VersionDownloader.exe`。

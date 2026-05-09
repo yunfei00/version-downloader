@@ -2,8 +2,8 @@ name: Build Windows Executable
 
 on:
   push:
-    branches: ["main", "master"]
-  pull_request:
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -28,8 +28,24 @@ jobs:
         run: |
           pyinstaller --noconfirm --onefile --windowed --name VersionDownloader --collect-all PySide6 main.py
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: VersionDownloader-windows
-          path: dist/VersionDownloader.exe
+          tag_name: ${{ github.ref_name }}
+          release_name: Version Downloader ${{ github.ref_name }}
+          body: Auto build release
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/VersionDownloader.exe
+          asset_name: VersionDownloader.exe
+          asset_content_type: application/octet-stream
