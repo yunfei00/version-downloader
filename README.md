@@ -84,6 +84,14 @@ git push origin v0.1.0
 
 执行后会自动触发工作流，并在 GitHub **Releases** 页面创建对应版本并上传 `VersionDownloader.exe`。
 
+
+如果出现 `Resource not accessible by integration`，需要在 workflow 顶部增加：
+
+```yaml
+permissions:
+  contents: write
+```
+
 ## 如何下载 exe
 
 1. 打开 GitHub 仓库页面的 **Releases**。
